@@ -35,6 +35,7 @@ class Scraper():
     @property
     def max_threads(self):
         return self._max_threads
+        
     @tictoc
     def run(self):
         for endpoint in self.endpoints:
@@ -49,14 +50,14 @@ class Scraper():
         filename = re.findall('https://.*?\/([a-z]+).*$', endpoint)[0] + '.csv'
         logger.info(F'Filename is {filename}')
         dataframe.to_csv(filename, index=False)
-    
+
     def download_photos(self):
         if 'photos.csv' in glob.glob('*'):
             Path("photos/").mkdir(parents=True, exist_ok=True)
             dataframe = pd.read_csv('photos.csv')
             filenames = dataframe['url'].apply(lambda x: 'photos/' + re.findall('.*/([0-9a-z]+)', x)[0] + '.jpg').to_list()
             urls = dataframe['url'].to_list()
-            urltuples = zip(urls[:100], filenames[:100])
+            urltuples = zip(urls, filenames)
             try:
                 logger.info(F'Running on {self.max_threads} threads')
                 with ThreadPoolExecutor(max_workers=self.max_threads) as executor:
@@ -75,6 +76,7 @@ class Scraper():
             logger.info(F'Saving {filename}')
             with open(filename, 'wb+') as f:
                 f.write(response.content)
+        return None
 
    
 
