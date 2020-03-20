@@ -1,5 +1,5 @@
 app:
-  threads: 1
+  threads: 10
   logger: DEBUG
 
 api:
