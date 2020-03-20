@@ -1,0 +1,11 @@
+app:
+  threads: 1
+  logger: DEBUG
+
+api:
+  url: https://jsonplaceholder.typicode.com/
+  endpoints: 
+    - users
+    - albums
+    - photos
+
