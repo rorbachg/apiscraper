@@ -4,7 +4,6 @@ import pandas as pd
 from main import Scraper
 from unittest.mock import patch
 import os
-from PIL import Image
 
 def mock_requests_get(*args, **kwargs):
     class MockResponse:
@@ -118,6 +117,8 @@ class UnitTests(unittest.TestCase):
             self.assertEqual(image, gold_image)
             os.remove(file_path)    
         os.remove('testphotos.csv')
+
+
 
 if __name__ == "__main__":
     unittest.main()
