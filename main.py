@@ -14,7 +14,7 @@ logging.basicConfig(format='%(asctime)s : %(levelname)s : %(name)s : %(message)s
 logger = logging.getLogger('APIScraper')
 
 
-def tictoc(func: Callable) -> Callable:
+def tictoc(func):
     def counter(*args, **kwargs):
         start = datetime.now()
         func(*args, **kwargs)
@@ -27,6 +27,8 @@ class Scraper():
     def __init__(self, config):
         self._endpoints = [config.get('api').get('url') + endpoint for endpoint in config.get('api').get('endpoints')]
         self._max_threads = config.get('app').get('threads')
+        level = logging.getLevelName(config.get('app').get('logger'))
+        logger.setLevel(level)
 
     @property
     def endpoints(self):
@@ -40,7 +42,9 @@ class Scraper():
     def run(self):
         for endpoint in self.endpoints:
             self.scrape_endpoint(endpoint)
-        self.download_photos()
+
+        if 'photos.csv' in glob.glob('*'):
+            self.download_photos('photos.csv')
 
     @staticmethod
     def scrape_endpoint(endpoint):
@@ -51,20 +55,19 @@ class Scraper():
         logger.info(F'Filename is {filename}')
         dataframe.to_csv(filename, index=False)
 
-    def download_photos(self):
-        if 'photos.csv' in glob.glob('*'):
-            Path("photos/").mkdir(parents=True, exist_ok=True)
-            dataframe = pd.read_csv('photos.csv')
-            filenames = dataframe['url'].apply(lambda x: 'photos/' + re.findall('.*/([0-9a-z]+)', x)[0] + '.jpg').to_list()
-            urls = dataframe['url'].to_list()
-            urltuples = zip(urls, filenames)
-            try:
-                logger.info(F'Running on {self.max_threads} threads')
-                with ThreadPoolExecutor(max_workers=self.max_threads) as executor:
-                    executor.map(self.download_photo, urltuples)
-            finally:
-                dataframe['file_path'] = filenames
-                dataframe.to_csv('photos.csv', index=False)
+    def download_photos(self, file):
+        Path("photos/").mkdir(parents=True, exist_ok=True)
+        dataframe = pd.read_csv(file)
+        filenames = dataframe['url'].apply(lambda x: 'photos/' + re.findall('.*/([0-9a-z]+)', x)[0] + '.jpg').to_list()
+        urls = dataframe['url'].to_list()
+        urltuples = zip(urls, filenames)
+        try:
+            logger.info(F'Running on {self.max_threads} threads')
+            with ThreadPoolExecutor(max_workers=self.max_threads) as executor:
+                executor.map(self.download_photo, urltuples)
+        finally:
+            dataframe['file_path'] = filenames
+            dataframe.to_csv(file, index=False)
 
     @staticmethod
     def download_photo(urltuple):
@@ -83,9 +86,6 @@ class Scraper():
 if __name__ == '__main__':
     with open('config.yml', 'r') as ymlfile:
         config = yaml.load(ymlfile, Loader=yaml.FullLoader)
-    level = logging.getLevelName(config.get('app').get('logger'))
-    logger.setLevel(level)
-
     scraper = Scraper(config)
     scraper.run()
     logger.info('Done')
