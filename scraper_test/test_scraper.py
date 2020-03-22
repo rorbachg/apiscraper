@@ -6,11 +6,20 @@ from unittest.mock import patch
 import os
 
 def mock_requests_get(*args, **kwargs):
+    """Mock method that will be used to mock API.
+
+    This method creates MockResponse class that mimics APIs response.
+    There are two cases implemented for testing:
+    1. Returning sample of 'users' endpoint data
+    2. Returning previosuly manually downloaded image.
+
+    """
     class MockResponse:
         def __init__(self, json_data, content, status_code):
             self.json_data = json_data
             self.content = content
             self.status_code = status_code
+            self.ok = status_code == 200
 
         def json(self):
             return self.json_data
@@ -52,15 +61,23 @@ def mock_requests_get(*args, **kwargs):
     
 
 class UnitTests(unittest.TestCase):
+    """UnitTest class
+
+    """
     @patch('main.requests.get', side_effect=mock_requests_get)
     def test_scrape_endpoint(self, mock_get):
+        """ scrape_ednpoints() test
+        This creates scraper object with some test endpoints that will be mocked and will return sample 
+        of users endpoint.
+
+        """
         config = {'app': {'threads': 1, 'logger': 'DEBUG'}, 
             'api': {'url': 'https://jsonplaceholder.typicode.com/',
                     'endpoints': ['test', ]}
             }
         scraper = Scraper(config)
         scraper.scrape_endpoint(scraper.endpoints[0])
-        df = pd.read_csv('test.csv')
+        df = pd.read_csv('data/test.csv')
         gold_df = pd.DataFrame({
                                 "id": 1,
                                 "name": "Leanne Graham",
@@ -81,10 +98,16 @@ class UnitTests(unittest.TestCase):
         
         pd.testing.assert_frame_equal(df,
                                       gold_df)
-        os.remove('test.csv')
+        os.remove('data/test.csv')
 
     @patch('main.requests.get', side_effect=mock_requests_get)
     def test_download_photo(self, mock_get):
+        """download_photo() test
+
+        This test creates scraper object with test endpoint and its given test url to download image from.
+        API is mocked and 'requests.get()' method returns previously downloaded image.
+
+        """
         config = {'app': {'threads': 1, 'logger': 'DEBUG'}, 
             'api': {'url': 'https://jsonplaceholder.typicode.com/',
                     'endpoints': ['test', ]}
@@ -99,6 +122,12 @@ class UnitTests(unittest.TestCase):
 
     @patch('main.requests.get', side_effect=mock_requests_get)
     def test_download_photos(self, mock_get):
+        """download_photos() test
+
+        This test creates test photos.csv which containes different urls to photos.
+        API is mocked and it returns everytime the same image that was previously downloaded.
+
+        """
         config = {'app': {'threads': 1, 'logger': 'DEBUG'}, 
             'api': {'url': 'https://jsonplaceholder.typicode.com/',
                     'endpoints': ['test', ]}

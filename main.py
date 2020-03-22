@@ -15,6 +15,9 @@ logger = logging.getLogger('APIScraper')
 
 
 def tictoc(func):
+    """This is my custom decorator snippet for measuring time.
+    """
+
     def counter(*args, **kwargs):
         start = datetime.now()
         func(*args, **kwargs)
@@ -24,11 +27,16 @@ def tictoc(func):
 
 
 class Scraper():
+    """Main program class.
+    """
+
     def __init__(self, config):
         self._endpoints = [config.get('api').get('url') + endpoint for endpoint in config.get('api').get('endpoints')]
         self._max_threads = config.get('app').get('threads')
         level = logging.getLevelName(config.get('app').get('logger'))
         logger.setLevel(level)
+        Path("data/").mkdir(parents=True, exist_ok=True)
+        Path("data/photos/").mkdir(parents=True, exist_ok=True)
 
     @property
     def endpoints(self):
@@ -40,25 +48,41 @@ class Scraper():
         
     @tictoc
     def run(self):
+        """Method that runs scraping each of endpoints and then downloading all photos.
+        """
+
         for endpoint in self.endpoints:
             self.scrape_endpoint(endpoint)
 
-        if 'photos.csv' in glob.glob('*'):
-            self.download_photos('photos.csv')
+        self.download_photos('data/photos.csv')
 
     @staticmethod
     def scrape_endpoint(endpoint):
+        """Method for scraping endpoint.
+
+        This method uses request library to send GET request to API. If response code is 200,
+        it converts JSON format to pandas DataFrame and saves it as .csv file.
+        """
+
         logger.info(F'Scraping endpoint {endpoint}')
         response = requests.get(endpoint)
-        dataframe = pd.json_normalize(response.json())
-        filename = re.findall('https://.*?\/([a-z]+).*$', endpoint)[0] + '.csv'
-        logger.info(F'Filename is {filename}')
-        dataframe.to_csv(filename, index=False)
+        if response.ok:
+            dataframe = pd.json_normalize(response.json())
+            filename = 'data/' + re.findall('https://.*?\/([a-z]+).*$', endpoint)[0] + '.csv'
+            logger.info(F'Filename is {filename}')
+            dataframe.to_csv(filename, index=False)
+        else:
+            raise Exception('Failed connection to API')
 
     def download_photos(self, file):
-        Path("photos/").mkdir(parents=True, exist_ok=True)
+        """Method for downloading photos.
+        
+        This method reads previously created .csv file containing photo urls and parses its names.
+        Then it creates ThreadPoolExecutor object and runs download_photo() method on as meny workers as declared in config.
+        After successful finish, csv file is appended with column containing local path to images.
+        """
         dataframe = pd.read_csv(file)
-        filenames = dataframe['url'].apply(lambda x: 'photos/' + re.findall('.*/([0-9a-z]+)', x)[0] + '.jpg').to_list()
+        filenames = dataframe['url'].apply(lambda x: 'data/photos/' + re.findall('.*/([0-9a-z]+)', x)[0] + '.jpg').to_list()
         urls = dataframe['url'].to_list()
         urltuples = zip(urls, filenames)
         try:
@@ -71,11 +95,17 @@ class Scraper():
 
     @staticmethod
     def download_photo(urltuple):
+        """Method for downloading single photo.
+
+        This method uses requests library in order oto download photo.
+        It call API, and if response code is 200 it saves it.
+
+        """
         url = urltuple[0]
         filename = urltuple[1]
         logger.info(F'Loading {filename}')
         response = requests.get(url)
-        if response.status_code == 200:
+        if response.ok:
             logger.info(F'Saving {filename}')
             with open(filename, 'wb+') as f:
                 f.write(response.content)
